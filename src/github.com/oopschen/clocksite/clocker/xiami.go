@@ -2,7 +2,10 @@
 package clocker
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/oopschen/clocksite/sys"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -17,6 +20,18 @@ type XiamiClocker struct {
 
 type XiamiError struct {
 	msg string
+}
+
+type jsonUserInfo struct {
+	Is int
+}
+
+type jsonDataInfo struct {
+	UserInfo jsonUserInfo
+}
+
+type jsonHomeInfo struct {
+	Data jsonDataInfo
 }
 
 func (e *XiamiError) Error() string {
@@ -34,7 +49,6 @@ func (c *XiamiClocker) Login(acc *Account) bool {
 	defer func() {
 		if nil != err {
 			c.err = err
-
 		}
 
 	}()
@@ -56,6 +70,7 @@ func (c *XiamiClocker) Login(acc *Account) bool {
 	if nil != err {
 		return false
 	}
+	resp.Body.Close()
 
 	xiamiToken := c.findCookieByName(indexURL, xiamiTokenCookieName)
 	if nil == xiamiToken {
@@ -78,6 +93,8 @@ func (c *XiamiClocker) Login(acc *Account) bool {
 		return false
 	}
 
+	defer resp.Body.Close()
+
 	if 200 != resp.StatusCode {
 		err = &XiamiError{msg: fmt.Sprintf("login: code=%d", resp.StatusCode)}
 		return false
@@ -91,9 +108,53 @@ func (c *XiamiClocker) Login(acc *Account) bool {
 	return true
 }
 
-// TODO
 func (c *XiamiClocker) ClockOn() bool {
-	return true
+	/*
+		1. visit home info
+		2. parse json value data.userinfo.is from http://www.xiami.com/index/home
+		3. if is == 1 then already clock on
+		4. http://www.xiami.com/task/signin  post
+	*/
+	var (
+		homeURL = "http://www.xiami.com/index/home"
+		err     error
+	)
+
+	defer func() {
+		if nil != err {
+			c.err = err
+		}
+	}()
+
+	// visit home
+	resp, err := c.client.Get(homeURL)
+	if nil != err {
+		return false
+	}
+
+	defer resp.Body.Close()
+
+	if 200 != resp.StatusCode {
+		err = &XiamiError{msg: fmt.Sprintf("get home: code=%d", resp.StatusCode)}
+		return false
+	}
+
+	// parse json
+	isClockOn, err := parseIsClockOn(resp.Body)
+	if isClockOn {
+		sys.Logger.Printf("Already clock on\n")
+		return true
+	}
+
+	sys.Logger.Printf("Clock on ING....\n")
+	// post sign
+	respSign, err := c.client.PostForm("http://www.xiami.com/task/signin", nil)
+	if nil != err {
+		return false
+	}
+
+	defer respSign.Body.Close()
+	return 200 == respSign.StatusCode
 }
 
 func (c *XiamiClocker) Error() error {
@@ -119,4 +180,15 @@ func (c *XiamiClocker) findCookieByName(domain, name string) *http.Cookie {
 		}
 	}
 	return nil
+}
+
+func parseIsClockOn(r io.Reader) (bool, error) {
+	decoder := json.NewDecoder(r)
+	res := &jsonHomeInfo{}
+	err := decoder.Decode(res)
+	if nil != err {
+		return false, err
+	}
+
+	return res.Data.UserInfo.Is == 1, nil
 }
