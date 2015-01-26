@@ -6,12 +6,28 @@ import (
 	"fmt"
 	"github.com/oopschen/clocksite/sys"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var (
+	signInResPattern *regexp.Regexp
+)
+
+func init() {
+	pattern, err := regexp.Compile(`[0-9]+`)
+	if nil != err {
+		sys.Logger.Printf("sign in pattern compile: %s\n", err)
+		return
+	}
+
+	signInResPattern = pattern
+}
 
 type XiamiClocker struct {
 	err    error
@@ -154,7 +170,24 @@ func (c *XiamiClocker) ClockOn() bool {
 	}
 
 	defer respSign.Body.Close()
-	return 200 == respSign.StatusCode
+	if 200 != respSign.StatusCode {
+		err = &XiamiError{msg: fmt.Sprintf("task signin: code=%d", resp.StatusCode)}
+		return false
+	}
+
+	body, err := ioutil.ReadAll(respSign.Body)
+	if nil != err {
+		return false
+	}
+
+	bodyStr := string(body)
+	if signInResPattern.MatchString(bodyStr) {
+		sys.Logger.Printf("you have already sign in for %s days\n", bodyStr)
+		return true
+	}
+
+	sys.Logger.Printf("Sign in error: body=%s, resp=%#v\n", bodyStr, respSign)
+	return false
 }
 
 func (c *XiamiClocker) Error() error {
