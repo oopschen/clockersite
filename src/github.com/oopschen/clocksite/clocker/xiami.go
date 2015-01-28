@@ -164,7 +164,16 @@ func (c *XiamiClocker) ClockOn() bool {
 
 	sys.Logger.Printf("Clock on ING....\n")
 	// post sign
-	respSign, err := c.client.PostForm("http://www.xiami.com/task/signin", nil)
+	req, err := http.NewRequest("POST", "http://www.xiami.com/task/signin", nil)
+	if nil != err {
+		return false
+	}
+
+	req.Header.Add("Origin", "http://www.xiami.com")
+	req.Header.Add("Referer", "http://www.xiami.com/")
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	respSign, err := c.client.Do(req)
 	if nil != err {
 		return false
 	}
