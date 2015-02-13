@@ -3,7 +3,7 @@
   
 # 安装  
   
-    docker run --name xiamiclock -v `pwd`:/mnt oopschen/casperjs:1.1.0-beta3 /mnt/xiami.js  
+    docker run --name xiamiclock -v `pwd`:/mnt oopschen/casperjs:1.1.0-beta3 /mnt/xiami.js username userpwd mode(tb|xm)
       
 # 启动  
     docker start xiamiclock 
