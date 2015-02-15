@@ -21,7 +21,6 @@ var casperjs = require("casper").create({
 var cmdArgs = casperjs.cli.args, user, pwd;
 if (2 > cmdArgs.length) {
   casperjs.die("need args: username password", 1);
-  casperjs.exit(1);
 }
 
 user = cmdArgs[0];

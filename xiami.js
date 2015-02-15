@@ -11,7 +11,6 @@ var user, pwd, mode;
 var cmdArgs = casperjs.cli.args;
 if (3 > cmdArgs.length) {
   casperjs.die("need args: username password mode(tb|xm)", 1);
-  casperjs.exit(1);
 }
 
 mode = cmdArgs[2].toUpperCase() == MODE_XIAMI ? MODE_XIAMI : MODE_TB;
