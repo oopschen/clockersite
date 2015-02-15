@@ -109,7 +109,10 @@ casperjs.start("http://www.xiami.com/", function() {
 
     }
 
-    this.waitForSelector(NAME_INFO_SELECTOR, clockon, 2000);
+    this.waitForSelector(NAME_INFO_SELECTOR, clockon, function() {
+      this.die("Login fail", 1);
+      
+    }, 2000);
 
   });
 
