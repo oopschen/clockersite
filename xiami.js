@@ -1,9 +1,7 @@
 var casperjs = require("casper").create({
-  "logLevel": "info",
   "pageSettings": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.101 Safari/537.36"
-  },
-  "verbose": true
+  }
 });
 
 // xiami account, taobao account
@@ -24,7 +22,7 @@ var NAME_INFO_SELECTOR = "div#user div.name > strong > a";
 var clockon = function() {
   // show welcome
   var nameTagInfo = this.getElementInfo(NAME_INFO_SELECTOR);
-  this.log("Welcome \"" + nameTagInfo["text"] + "\"");
+  this.echo("Welcome \"" + nameTagInfo["text"] + "\"");
 
   // find to sign elements
   var clockonEleSelector = "div#user div.action > b.icon.tosign";
@@ -37,7 +35,7 @@ var clockon = function() {
   var doneSelector = clockonEleSelector + ".done";
   if (this.exists(doneSelector)) {
     var info = this.getElementInfo(doneSelector);
-    this.log("You have already sign for " + info["text"] + " days", "info");
+    this.echo("You have already sign for " + info["text"]);
     return;
   }
 
