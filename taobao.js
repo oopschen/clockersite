@@ -8,7 +8,8 @@ var casperjs = require("casper").create({
   logLevel: "debug",
   verbose: true,
   */
-  viewportSize: {width: 1280, height:800}
+  viewportSize: {width: 1280, height:800},  
+  waitTimeout: 1600  
 });
 
 var webserver = require('webserver').create(),
@@ -71,7 +72,7 @@ function doXiamiClockJob() {
 
   });
 
-}
+};
 
 function xiamiClockon() {
   this.open("http://www.xiami.com").then(function() {
@@ -99,7 +100,7 @@ function xiamiClockon() {
                   this.echo("Xiami: login fail");
                   nextClock.call(this);
 
-                }, 2000);
+                });
 
               });
               // frame
@@ -108,7 +109,7 @@ function xiamiClockon() {
               this.echo("Xiami: alibaba login page 404");
               nextClock.call(this);
 
-            }, 2000);
+            });
             // wait selector
 
           });
@@ -118,22 +119,22 @@ function xiamiClockon() {
           this.echo("Xiami: Taobao tab 404");
           nextClock.call(this);
 
-        }, 2000);
+        });
 
       }, function() {
         this.echo("Xiami: login page 404");
         nextClock.call(this);
 
-      }, 2000);
+      });
 
     }, function() {
       // already login
       doXiamiClockJob.call(this);
 
-    }, 500);
+    });
 
   });
-}
+};
 // end
 
 // taojinbi
@@ -167,9 +168,9 @@ function doTaojinbiClock() {
     this.echo('Taojinbi: sign fail');
     nextClock.call(this);
 
-  }, 1000);
+  });
 
-}
+};
 
 function taojinbiClockon() {
   this.open("http://taojinbi.taobao.com/").then(function() {
@@ -177,11 +178,10 @@ function taojinbiClockon() {
     this.waitForSelector(loginInfoSelector, doTaojinbiClock, function() {
       this.echo("Taojinbi: login 404");
       nextClock.call(this);
-    }, 500);
+    });
   });
-}
+};
 // end
-
 
 // wait for user input code
 function wait4UserInputCode(cb) {
@@ -242,83 +242,29 @@ function wait4UserInputCode(cb) {
 
   })));
 
-  this.echo("Visit http://localhost:" + (port - 1) + " to input captcha, you have 20 seconds");
-  this.wait(20000);
+  this.echo("Visit http://localhost:" + (port - 1) + " to input captcha, you have 10 seconds");
+  this.wait(10000);
 
-}
-
-function inputTaobaoPwd(formID, pwd, callback) {
-  var form = 'form#' + formID;
-  var pwdSelector = form + ' input[name="TPL_password"]';
-
-  // check selector
-  this.waitForSelector(pwdSelector, function() {
-    // fake mouse action
-    this.mouse.move(pwdSelector);
-    this.mouse.click(pwdSelector);
-    // input pwd
-    this.sendKeys(pwdSelector, pwd);
-  }, function() {
-    this.die('Taobao: password input not found', 1);
-
-  }, 2000);
-
-  // wait for captcha code
-  this.waitUntilVisible(form + " div.field-checkcode", function() {
-    // check capcha
-    wait4UserInputCode.call(this, function(code) {
-      var checkCodeSelector = form + ' input[name="TPL_checkcode"]';
-      this.waitForSelector(checkCodeSelector, function() {
-        this.sendKeys(checkCodeSelector, code);
-        this.click(form + ' button[type="submit"]');
-        callback.call(this);
-
-      }, function() {
-        this.die('Taobao: captcha code input not found', 1);
-
-      }, 2000);
-
-    });
-  }, function() {
-    this.click(form + ' button[type="submit"]');
-    callback.call(this);
-
-  }, 2000);
-
-}
-
-function inputTaobaoAcc(name, pwd, callback) {
-  // check name is already input
-  if (this.exists('form#J_Form')) {
-    inputTaobaoPwd.call(this, 'J_Form', pwd, callback);
-    return;
-  }
-
-  var nameSelector = 'form#J_StaticForm  input[name="TPL_username"]'; 
-  this.waitForSelector(nameSelector, function() {
-    // fake mouse move
-    this.mouse.move(nameSelector);
-    this.mouse.click(nameSelector);
-    // input name
-    this.sendKeys(nameSelector, name);
-  }, function() {
-    this.die('Taobao: username input not found', 1);
-
-  }, 2000);
-
-  // wait for nick check
-  this.waitForResource(/.*member\/request_nick_check\.do.*$/, function() {
-      inputTaobaoPwd.call(this, 'J_StaticForm', pwd, callback);
-
-  }, function() {
-    this.die('Taobao: nick check resource not found', 1);
-
-  }, 2000);
-}
+};
 
 function nextClock() {
   this.emit(nextEventName);
-}
+};
+
+function afterLoginCallback() {
+  this.waitForSelector("li#J_LoginInfo", nextClock, function() {
+    var messageSelector = "div#J_Message";
+    if (this.visible(messageSelector)) {
+      this.die("Taobao: " + this.fetchText(messageSelector + " > p.error"), 1);
+    } else {
+      this.capture('/mnt/taobao_login_fail.png');
+      this.die("Taobao: login fail, please check file@taobao_login_fail.png", 1);
+
+    }
+
+  });
+
+};
   
 // listen on event
 casperjs.on(nextEventName, function() {
@@ -329,39 +275,68 @@ casperjs.on(nextEventName, function() {
   }
 });
 
+
+// ===============================================================
 // main entry
 casperjs.start("http://www.taobao.com/");
   
 // click to redirect
 var redirectBtnSelector = 'div#J_SiteNav li#J_LoginInfo a.h';
+// wait for captcha code
 casperjs.waitForSelector(redirectBtnSelector, function() {
   this.mouse.move(redirectBtnSelector);
   this.mouse.click(redirectBtnSelector);
-
 }, function() {
   this.die('Login button not found', 1);
-}, 2000);
+});
   
-// wait for nick check
 casperjs.waitForResource(/^https.*\/member\/login.jhtml.*$/ig, function() {
-  inputTaobaoAcc.call(this, user, pwd, function() {
-    // wait login success 
-    this.waitForSelector("li#J_LoginInfo", nextClock, function() {
-      var messageSelector = "div#J_Message";
-      if (this.visible(messageSelector)) {
-        this.die("Taobao: " + this.fetchText(messageSelector + " > p.error"), 1);
-      } else {
-        this.capture('/mnt/taobao.png');
-        this.die("Taobao: login fail", 1);
+  var form = "form#J_StaticForm";
+  var args = {  
+    'TPL_password': pwd
+  };
 
-      }
+  if (this.exists('form#J_Form')) {
+    form = "form#J_Form";
+  } else {
+    args['TPL_username'] = user;
 
-    }, 2000);
+  }
+
+  this.fill(form, args, false);
+
+  // check nick url
+  this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {}, function() {
+    this.die('Taobao: log memeber url not found', 1);
+  });
+  // wait for nick check
+  this.waitForResource(/.*member\/request_nick_check\.do.*$/, function() {}, function() {
+    this.die('Taobao: nick check resource not found', 1);
+  });
+
+  this.waitUntilVisible(form + " div.field-checkcode", function() {
+    // check capcha
+    wait4UserInputCode.call(this, function(code) {
+      var checkCodeSelector = form + ' input[name="TPL_checkcode"]';
+      this.waitForSelector(checkCodeSelector, function() {
+        this.sendKeys(checkCodeSelector, code);
+        this.click(form + ' button[type="submit"]');
+        afterLoginCallback.call(this);
+
+      }, function() {
+        this.die('Taobao: captcha code input not found', 1);
+
+      });
+
+    });
+  }, function() {
+    this.click(form + ' button[type="submit"]');
+    afterLoginCallback.call(this);
 
   });
 
 }, function() {
   this.die('Go to login page', 1);
-}, 2000);
+});
 
 casperjs.run();
