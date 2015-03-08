@@ -3,10 +3,10 @@
   
 # 安装  
   
-    docker run --name xiamiclock -v `pwd`:/mnt oopschen/casperjs:1.1.0-beta3 /mnt/xiami.js username userpwd mode(tb|xm)
+    docker run --name [containerName] -v [localDirectory contain taobao.js]:/mnt -p 7777:7777 oopschen/casperjs:1.1.0-beta3 /mnt/taobao.js [username] [userpwd]
       
 # 启动  
-    docker start xiamiclock 
+    docker start -a [containerName]
   
 # 支持站点  
 * www.xiami.com  

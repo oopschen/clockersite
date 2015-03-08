@@ -1,5 +1,14 @@
 var casperjs = require("casper").create({
-  "viewportSize": {width: 1280, height:800}
+  pageSettings: {
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36',
+    loadImages: true,  
+    loadPlugins: true  
+  },
+  /*
+  logLevel: "debug",
+  verbose: true,
+  */
+  viewportSize: {width: 1280, height:800}
 });
 
 var webserver = require('webserver').create(),
@@ -241,35 +250,41 @@ function wait4UserInputCode(cb) {
 function inputTaobaoPwd(formID, pwd, callback) {
   var form = 'form#' + formID;
   var pwdSelector = form + ' input[name="TPL_password"]';
+
+  // check selector
   this.waitForSelector(pwdSelector, function() {
+    // fake mouse action
+    this.mouse.move(pwdSelector);
+    this.mouse.click(pwdSelector);
+    // input pwd
     this.sendKeys(pwdSelector, pwd);
-
-    this.waitUntilVisible(form + " div.field-checkcode", function() {
-      // check capcha
-      wait4UserInputCode.call(this, function(code) {
-        var checkCodeSelector = form + ' input[name="TPL_checkcode"]';
-        this.waitForSelector(checkCodeSelector, function() {
-          this.sendKeys(checkCodeSelector, code);
-          this.click(form + ' button[type="submit"]');
-          callback.call(this);
-
-        }, function() {
-          this.die('Taobao: captcha code input not found', 1);
-
-        }, 2000);
-
-      });
-
-    }, function() {
-      this.click(form + ' button[type="submit"]');
-      callback.call(this);
-
-    }, 2000);
-
   }, function() {
     this.die('Taobao: password input not found', 1);
 
   }, 2000);
+
+  // wait for captcha code
+  this.waitUntilVisible(form + " div.field-checkcode", function() {
+    // check capcha
+    wait4UserInputCode.call(this, function(code) {
+      var checkCodeSelector = form + ' input[name="TPL_checkcode"]';
+      this.waitForSelector(checkCodeSelector, function() {
+        this.sendKeys(checkCodeSelector, code);
+        this.click(form + ' button[type="submit"]');
+        callback.call(this);
+
+      }, function() {
+        this.die('Taobao: captcha code input not found', 1);
+
+      }, 2000);
+
+    });
+  }, function() {
+    this.click(form + ' button[type="submit"]');
+    callback.call(this);
+
+  }, 2000);
+
 }
 
 function inputTaobaoAcc(name, pwd, callback) {
@@ -281,19 +296,22 @@ function inputTaobaoAcc(name, pwd, callback) {
 
   var nameSelector = 'form#J_StaticForm  input[name="TPL_username"]'; 
   this.waitForSelector(nameSelector, function() {
+    // fake mouse move
+    this.mouse.move(nameSelector);
+    this.mouse.click(nameSelector);
+    // input name
     this.sendKeys(nameSelector, name);
-
-    // wait for nick check
-    this.waitForResource(/.*member\/request_nick_check\.do.*$/, function() {
-      inputTaobaoPwd.call(this, 'J_StaticForm', pwd, callback);
-
-    }, function() {
-      this.die('Taobao: nick check resource not found', 1);
-
-    }, 2000);
-
   }, function() {
     this.die('Taobao: username input not found', 1);
+
+  }, 2000);
+
+  // wait for nick check
+  this.waitForResource(/.*member\/request_nick_check\.do.*$/, function() {
+      inputTaobaoPwd.call(this, 'J_StaticForm', pwd, callback);
+
+  }, function() {
+    this.die('Taobao: nick check resource not found', 1);
 
   }, 2000);
 }
@@ -301,7 +319,7 @@ function inputTaobaoAcc(name, pwd, callback) {
 function nextClock() {
   this.emit(nextEventName);
 }
-
+  
 // listen on event
 casperjs.on(nextEventName, function() {
   if (curCallInx < calls.length) {
@@ -312,21 +330,38 @@ casperjs.on(nextEventName, function() {
 });
 
 // main entry
-casperjs.start("https://login.taobao.com/member/login.jhtml", function() {
+casperjs.start("http://www.taobao.com/");
+  
+// click to redirect
+var redirectBtnSelector = 'div#J_SiteNav li#J_LoginInfo a.h';
+casperjs.waitForSelector(redirectBtnSelector, function() {
+  this.mouse.move(redirectBtnSelector);
+  this.mouse.click(redirectBtnSelector);
+
+}, function() {
+  this.die('Login button not found', 1);
+}, 2000);
+  
+// wait for nick check
+casperjs.waitForResource(/^https.*\/member\/login.jhtml.*$/ig, function() {
   inputTaobaoAcc.call(this, user, pwd, function() {
     // wait login success 
     this.waitForSelector("li#J_LoginInfo", nextClock, function() {
       var messageSelector = "div#J_Message";
       if (this.visible(messageSelector)) {
         this.die("Taobao: " + this.fetchText(messageSelector + " > p.error"), 1);
-      }
+      } else {
+        this.capture('/mnt/taobao.png');
+        this.die("Taobao: login fail", 1);
 
-      this.die("Taobao: login fail", 1);
+      }
 
     }, 2000);
 
   });
 
-});
+}, function() {
+  this.die('Go to login page', 1);
+}, 2000);
 
 casperjs.run();
