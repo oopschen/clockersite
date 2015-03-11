@@ -25,8 +25,12 @@ if (2 > cmdArgs.length) {
 
 user = cmdArgs[0];
 pwd = cmdArgs[1];
-var nextEventName = 'taobao.nexte';
 var calls = [xiamiClockon, taojinbiClockon], curCallInx = 0;
+var EV_TAOBAO_INPUT_NAME = "taobao.input.name",
+    EV_TAOBAO_INPUT_PWD = 'taobao.input.pwd',
+    EV_TAOBAO_INPUT_CAPTCHA = 'taobao.input.captcha',
+    EV_TAOBAO_LOGIN = 'taobao.login',
+    EV_TAOBAO_NEXT_SIGN_ON = 'taobao.next';
 // end
 
 // xiami 
@@ -248,26 +252,11 @@ function wait4UserInputCode(cb) {
 };
 
 function nextClock() {
-  this.emit(nextEventName);
+  this.emit(EV_TAOBAO_NEXT_SIGN_ON);
 };
 
-function afterLoginCallback() {
-  this.waitForSelector("li#J_LoginInfo", nextClock, function() {
-    var messageSelector = "div#J_Message";
-    if (this.visible(messageSelector)) {
-      this.die("Taobao: " + this.fetchText(messageSelector + " > p.error"), 1);
-    } else {
-      this.capture('/mnt/taobao_login_fail.png');
-      this.die("Taobao: login fail, please check file@taobao_login_fail.png", 1);
-
-    }
-
-  });
-
-};
-  
 // listen on event
-casperjs.on(nextEventName, function() {
+casperjs.on(EV_TAOBAO_NEXT_SIGN_ON, function() {
   if (curCallInx < calls.length) {
     calls[curCallInx++].call(this);
   } else {
@@ -275,6 +264,71 @@ casperjs.on(nextEventName, function() {
   }
 });
 
+casperjs.on(EV_TAOBAO_INPUT_NAME, function() {
+  // input name
+  this.sendKeys('form[id*="Form"] input[name="TPL_username"]', user);
+  this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {
+  }, function() {
+    this.die('Taobao: username mmstat not found.', 1);
+
+  });
+  
+  // wait for nick check
+  this.waitForResource(/.*member\/request_nick_check\.do.*$/, function() {
+    this.emit(EV_TAOBAO_INPUT_PWD);
+  }, function() {
+    this.die('Taobao: username check not found.', 1);
+
+  });
+});
+
+casperjs.on(EV_TAOBAO_INPUT_PWD, function() {
+  // input password
+  this.sendKeys('form[id*="Form"] input[name="TPL_password"]', pwd);
+  this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {
+    this.emit(EV_TAOBAO_INPUT_CAPTCHA);
+
+  }, function() {
+    this.die('Taobao: userpwd mmstat not found.', 1);
+
+  });
+  
+});
+
+casperjs.on(EV_TAOBAO_INPUT_CAPTCHA, function() {
+  // input captcha
+  var form = 'form[id*="Form"]';
+  if (!this.visible(form + ' div.field-checkcode')) {
+    this.emit(EV_TAOBAO_LOGIN);
+    return;
+  }
+
+  // check capcha
+  wait4UserInputCode.call(this, function(code) {
+    var checkCodeSelector = form + ' input[name="TPL_checkcode"]';
+    this.waitForSelector(checkCodeSelector, function() {
+      this.sendKeys(checkCodeSelector, code);
+
+      this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {
+        this.emit(EV_TAOBAO_LOGIN);
+
+      }, function() {
+        this.die('Taobao: captcha mmstat not found.', 1);
+
+      });
+
+    }, function() {
+      this.die('Taobao: captcha code input not found', 1);
+
+    });
+
+  });
+  
+});
+
+casperjs.on(EV_TAOBAO_LOGIN, function() {
+  this.click('form[id*="Form"] button[type="submit"]');
+});
 
 // ===============================================================
 // main entry
@@ -287,56 +341,25 @@ casperjs.waitForSelector(redirectBtnSelector, function() {
   this.mouse.move(redirectBtnSelector);
   this.mouse.click(redirectBtnSelector);
 }, function() {
-  this.die('Login button not found', 1);
+  this.die('Taobao: login button not found', 1);
 });
   
 casperjs.waitForResource(/^https.*\/member\/login.jhtml.*$/ig, function() {
-  var form = "form#J_StaticForm";
-  var args = {  
-    'TPL_password': pwd
-  };
+  this.emit(EV_TAOBAO_INPUT_NAME);
+}, function() {
+  this.die('Taobao: login page not found', 1);
+});
 
-  if (this.exists('form#J_Form')) {
-    form = "form#J_Form";
+casperjs.waitForSelector("li#J_LoginInfo", nextClock, function() {
+  var messageSelector = "div#J_Message";
+  this.capture('/mnt/taobao_login_fail.png');
+  if (this.visible(messageSelector)) {
+    this.die("Taobao: " + this.fetchText(messageSelector + " > p.error"), 1);
   } else {
-    args['TPL_username'] = user;
+    this.die("Taobao: login fail, please check file@taobao_login_fail.png", 1);
 
   }
 
-  this.fill(form, args, false);
-
-  // check nick url
-  this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {}, function() {
-    this.die('Taobao: log memeber url not found', 1);
-  });
-  // wait for nick check
-  this.waitForResource(/.*member\/request_nick_check\.do.*$/, function() {}, function() {
-    this.die('Taobao: nick check resource not found', 1);
-  });
-
-  this.waitUntilVisible(form + " div.field-checkcode", function() {
-    // check capcha
-    wait4UserInputCode.call(this, function(code) {
-      var checkCodeSelector = form + ' input[name="TPL_checkcode"]';
-      this.waitForSelector(checkCodeSelector, function() {
-        this.sendKeys(checkCodeSelector, code);
-        this.click(form + ' button[type="submit"]');
-        afterLoginCallback.call(this);
-
-      }, function() {
-        this.die('Taobao: captcha code input not found', 1);
-
-      });
-
-    });
-  }, function() {
-    this.click(form + ' button[type="submit"]');
-    afterLoginCallback.call(this);
-
-  });
-
-}, function() {
-  this.die('Go to login page', 1);
-});
+}, 60000);
 
 casperjs.run();
