@@ -12,7 +12,7 @@ var casperjs = require("casper").create({
 var webserver = require('webserver').create(),
     webServerPort = 7777,
     captchaFormat = 'jpeg',
-    webService;
+    webService, webPort;
 
 // parse parameters
 var cmdArgs = casperjs.cli.args, user, pwd;
@@ -28,6 +28,7 @@ var EV_TAOBAO_INPUT_NAME = "taobao.input.name",
     EV_TAOBAO_INPUT_CAPTCHA = 'taobao.input.captcha',
     EV_TAOBAO_LOGIN = 'taobao.login',
     EV_TAOBAO_NEXT_SIGN_ON = 'taobao.next';
+var isLoginFin = 0;
 // end
 
 // xiami 
@@ -188,7 +189,7 @@ function taojinbiClockon() {
 function wait4UserInputCode(cb) {
   var port = webServerPort;
   var self = this;
-  while (!webService && !(webService = webserver.listen(port++, function(req, res) {
+  while (!webService && !(webService = webserver.listen((webPort = port++), function(req, res) {
     if ('GET' == req.method) {
       var html = ['<html><body>'];
       html[html.length] = '<div>';
@@ -240,7 +241,7 @@ function wait4UserInputCode(cb) {
 
   })));
 
-  this.echo("Visit http://localhost:" + (port - 1) + " to input captcha");
+  this.echo("Visit http://localhost:" + webPort + " to input captcha");
 };
 
 function nextClock() {
@@ -308,12 +309,12 @@ casperjs.on(EV_TAOBAO_INPUT_CAPTCHA, function() {
 
     });
 
-  });
-  
+  }); 
 });
 
 casperjs.on(EV_TAOBAO_LOGIN, function() {
   this.click('form[id*="Form"] button[type="submit"]');
+  isLoginFin = 1;
 });
 
 // ===============================================================
@@ -330,35 +331,33 @@ casperjs.waitForSelector(redirectBtnSelector, function() {
   this.die('Taobao: login button not found', 1);
 });
   
+// wait for login page
 casperjs.waitForResource(/^https.*\/member\/login.jhtml.*$/ig, function() {
   this.emit(EV_TAOBAO_INPUT_NAME);
 }, function() {
   this.die('Taobao: login page not found', 1);
 });
 
+function wait4Login() {
+  this.waitFor(function() {
+    return 1 == isLoginFin;
+  }, function() {}, wait4Login, 10000);
+};
+
+wait4Login.call(casperjs);
+
 casperjs.waitForSelector("li#J_LoginInfo", nextClock, function() {
   var messageSelector = "div#J_Message";
   this.capture('/mnt/taobao_login_fail.png');
   if (this.visible(messageSelector)) {
-    var form = 'form[id*="Form"]';
-    if (!this.visible(form + ' div.field-checkcode')) {
-      this.emit(EV_TAOBAO_INPUT_CAPTCHA);
-      return;
-    }
-
-    this.waitForSelector("li#J_LoginInfo", nextClock, function() {
-      if (this.visible(messageSelector)) {
-        this.die("Taobao: " + this.fetchText(messageSelector + " > p.error"), 1);
-      } else {
-        this.die("Taobao: login fail, please check file@taobao_login_fail.png", 1);
-      }
-    });
+    var errText = this.fetchText(messageSelector + " > p.error");
+    this.die("Taobao: " + errText, 1);
 
   } else {
     this.die("Taobao: login fail, please check file@taobao_login_fail.png", 1);
 
   }
 
-}, 60000);
+});
 
 casperjs.run();
