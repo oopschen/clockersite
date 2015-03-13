@@ -248,6 +248,18 @@ function nextClock() {
   this.emit(EV_TAOBAO_NEXT_SIGN_ON);
 };
 
+function getRandom(seed) {
+  return Math.round(Math.random() * seed);
+}
+
+function sendKeys(sel, text, delay) {
+  this.sendKeys(sel, '', {reset:true, keepFocus: true})
+  for (var i=0; i<text.length; i++) {
+    this.sendKeys(sel, text[i], {keepFocus: true});
+    this.wait(getRandom(delay));
+  }
+}
+
 // listen on event
 casperjs.on(EV_TAOBAO_NEXT_SIGN_ON, function() {
   if (curCallInx < calls.length) {
@@ -258,8 +270,28 @@ casperjs.on(EV_TAOBAO_NEXT_SIGN_ON, function() {
 });
 
 casperjs.on(EV_TAOBAO_INPUT_NAME, function() {
+  this.wait(getRandom(1500));
   // input name
-  this.sendKeys('form[id*="Form"] input[name="TPL_username"]', user);
+  var initX = getRandom(700),
+      initY = getRandom(200);
+  var nameSel = 'form[id*="Form"] input[name="TPL_username"]';
+
+  this.mouse.move(initX, initY);
+  this.wait(getRandom(500));
+
+  this.mouse.move(nameSel);
+  this.wait(getRandom(500));
+
+  this.mouse.down(nameSel);
+  this.mouse.up(nameSel);
+
+  this.wait(getRandom(500));
+  sendKeys.call(this, nameSel, user, 10);
+
+  this.wait(getRandom(500));
+  this.mouse.down('body');
+  this.mouse.up('body');
+
   this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {
     // wait for nick check
     this.waitForResource(/.*member\/request_nick_check\.do.*$/, function() {
@@ -278,7 +310,23 @@ casperjs.on(EV_TAOBAO_INPUT_NAME, function() {
 
 casperjs.on(EV_TAOBAO_INPUT_PWD, function() {
   // input password
-  this.sendKeys('form[id*="Form"] input[name="TPL_password"]', pwd);
+  var pwdSelector = 'form[id*="Form"] input[name="TPL_password"]';
+  this.wait(getRandom(500));
+
+  this.mouse.move(pwdSelector);
+  this.wait(getRandom(500));
+
+  this.mouse.down(pwdSelector);
+  this.wait(getRandom(500));
+  this.mouse.up(pwdSelector);
+
+  this.wait(getRandom(500));
+  sendKeys.call(this, pwdSelector, pwd, 5);
+
+  this.wait(getRandom(500));
+  this.mouse.down('body');
+  this.mouse.up('body');
+
   this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {
     this.emit(EV_TAOBAO_INPUT_CAPTCHA);
 
@@ -313,7 +361,10 @@ casperjs.on(EV_TAOBAO_INPUT_CAPTCHA, function() {
 });
 
 casperjs.on(EV_TAOBAO_LOGIN, function() {
-  this.click('form[id*="Form"] button[type="submit"]');
+  var loginBtnSel = 'form[id*="Form"] button[type="submit"]';
+  this.wait(getRandom(400));
+  this.mouse.move(loginBtnSel);
+  this.click(loginBtnSel);
   isLoginFin = 1;
 });
 
