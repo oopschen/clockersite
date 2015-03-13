@@ -2,9 +2,9 @@ var casperjs = require("casper").create({
   pageSettings: {
     userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36',
     loadImages: true,  
-    loadPlugins: false 
+    loadPlugins: false
   },
-  //logLevel: "info", verbose: true,
+  // logLevel: "debug", verbose: true,
   viewportSize: {width: 1280, height:800},  
   waitTimeout: 1600  
 });
@@ -249,14 +249,14 @@ function nextClock() {
 };
 
 function getRandom(seed) {
-  return Math.round(Math.random() * seed);
+  var r = Math.round(Math.random() * seed);
+  return 0 == r ? 6 : r;
 }
 
 function sendKeys(sel, text, delay) {
   this.sendKeys(sel, '', {reset:true, keepFocus: true})
   for (var i=0; i<text.length; i++) {
     this.sendKeys(sel, text[i], {keepFocus: true});
-    this.wait(getRandom(delay));
   }
 }
 
@@ -286,26 +286,13 @@ casperjs.on(EV_TAOBAO_INPUT_NAME, function() {
   this.mouse.up(nameSel);
 
   this.wait(getRandom(500));
-  sendKeys.call(this, nameSel, user, 10);
+  sendKeys.call(this, nameSel, user, 5);
 
   this.wait(getRandom(500));
   this.mouse.down('body');
   this.mouse.up('body');
 
-  this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {
-    // wait for nick check
-    this.waitForResource(/.*member\/request_nick_check\.do.*$/, function() {
-      this.emit(EV_TAOBAO_INPUT_PWD);
-    }, function() {
-      this.die('Taobao: username check not found.', 1);
-
-    });
-
-  }, function() {
-    this.die('Taobao: username mmstat not found.', 1);
-
-  });
-  
+  this.emit(EV_TAOBAO_INPUT_PWD);
 });
 
 casperjs.on(EV_TAOBAO_INPUT_PWD, function() {
@@ -327,14 +314,7 @@ casperjs.on(EV_TAOBAO_INPUT_PWD, function() {
   this.mouse.down('body');
   this.mouse.up('body');
 
-  this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {
-    this.emit(EV_TAOBAO_INPUT_CAPTCHA);
-
-  }, function() {
-    this.die('Taobao: userpwd mmstat not found.', 1);
-
-  });
-  
+  this.emit(EV_TAOBAO_INPUT_CAPTCHA);
 });
 
 casperjs.on(EV_TAOBAO_INPUT_CAPTCHA, function() {
@@ -348,15 +328,7 @@ casperjs.on(EV_TAOBAO_INPUT_CAPTCHA, function() {
   // check capcha
   wait4UserInputCode.call(this, function(code) {
     this.sendKeys(form + ' input[name="TPL_checkcode"]', code);
-
-    this.waitForResource(/^https:\/\/log\.mmstat\.com\/member.*$/ig, function() {
       this.emit(EV_TAOBAO_LOGIN);
-
-    }, function() {
-      this.die('Taobao: captcha mmstat not found.', 1);
-
-    });
-
   }); 
 });
 
@@ -392,7 +364,7 @@ casperjs.waitForResource(/^https.*\/member\/login.jhtml.*$/ig, function() {
 function wait4Login() {
   this.waitFor(function() {
     return 1 == isLoginFin;
-  }, function() {}, wait4Login, 10000);
+  }, function() {}, wait4Login, 30000);
 };
 
 wait4Login.call(casperjs);
