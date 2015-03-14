@@ -334,7 +334,7 @@ casperjs.on(EV_TAOBAO_INPUT_CAPTCHA, function() {
 
 casperjs.on(EV_TAOBAO_LOGIN, function() {
   var loginBtnSel = 'form[id*="Form"] button[type="submit"]';
-  this.wait(getRandom(400));
+  this.wait(getRandom(2400));
   this.mouse.move(loginBtnSel);
   this.click(loginBtnSel);
   isLoginFin = 1;
