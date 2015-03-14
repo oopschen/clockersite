@@ -1,7 +1,6 @@
 var casperjs = require("casper").create({
   "pageSettings": {
-    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.101 Safari/537.36",
-    loadImages: true,  
+    loadImages: false,  
     loadPlugins: false
   },
   // logLevel: "debug", verbose: true,
