@@ -25,7 +25,6 @@ var NAME_INFO_SELECTOR = "div#user div.name > strong > a";
 var clockon = function() {
   // show welcome
   var nameTagInfo = this.getElementInfo(NAME_INFO_SELECTOR);
-  this.echo("Welcome \"" + nameTagInfo["text"] + "\"");
 
   // find to sign elements
   var clockonEleSelector = "div#user div.action > b.icon.tosign";
@@ -37,8 +36,7 @@ var clockon = function() {
   // check has already clock on
   var doneSelector = clockonEleSelector + ".done";
   if (this.exists(doneSelector)) {
-    var info = this.getElementInfo(doneSelector);
-    this.echo("You have already sign for " + info["text"]);
+    this.echo("You have already signed for " + this.fetchText(doneSelector));
     return;
   }
 
@@ -46,7 +44,7 @@ var clockon = function() {
   this.click(clockonEleSelector);
 
   this.waitForSelector(doneSelector, function() {
-    this.echo("You have sign successfully", "info");
+    this.echo("You have signed for " + this.fetchText(doneSelector));
 
   }, function() {
     this.die("You have failed to sign, please try it again", 1);
